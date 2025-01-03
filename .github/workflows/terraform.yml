@@ -1,0 +1,56 @@
+
+name: 'Terraform'
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+  terraform:
+    name: 'Terraform'
+    runs-on: ubuntu-latest
+    environment: production
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      # Checkout the repository to the GitHub Actions runner
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Generates an execution plan for Terraform
+      - name: Terraform Plan
+        if: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+        run: terraform plan -var 'aws_region=${{ secrets.AWS_REGION }}' -var 'account_id=${{ secrets.ACCOUNT_ID }}' -var 'access_key=${{ secrets.AWS_ACCESS_KEY_ID }}' -var 'secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -var 'cluster_name=${{ secrets.CLUSTER_NAME }}' -var 'cluster_task=${{ secrets.CLUSTER_TASK }}' -var 'cluster_service=${{ secrets.CLUSTER_SERVICE }}' -var 'image_url=${{ secrets.IMAGE_URL }}'
+
+        # On push to "master", build or change infrastructure according to Terraform configuration files
+        # Note: It is recommended to set up a required "strict" status check in your repository for "Terraform Cloud". See the documentation on "strict" required status checks for more information: https://help.github.com/en/github/administering-a-repository/types-of-required-status-checks
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform apply -auto-approve -var 'aws_region=${{ secrets.AWS_REGION }}' -var 'access_key=${{ secrets.AWS_ACCESS_KEY_ID }}' -var 'secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -var 'account_id=${{ secrets.ACCOUNT_ID }}' -var 'cluster_name=${{ secrets.CLUSTER_NAME }}' -var 'cluster_task=${{ secrets.CLUSTER_TASK }}' -var 'cluster_service=${{ secrets.CLUSTER_SERVICE }}' -var 'image_url=${{ secrets.IMAGE_URL }}'
+
+      - name: Cleanup if apply fails
+        if: ${{ failure() }}
+        run: terraform destroy -auto-approve -var 'aws_region=${{ secrets.AWS_REGION }}' -var 'access_key=${{ secrets.AWS_ACCESS_KEY_ID }}' -var 'secret_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}' -var 'account_id=${{ secrets.ACCOUNT_ID }}' -var 'cluster_name=${{ secrets.CLUSTER_NAME }}' -var 'cluster_task=${{ secrets.CLUSTER_TASK }}' -var 'cluster_service=${{ secrets.CLUSTER_SERVICE }}' -var 'image_url=${{ secrets.IMAGE_URL }}'
