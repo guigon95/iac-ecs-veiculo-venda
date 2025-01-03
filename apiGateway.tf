@@ -3,7 +3,7 @@ resource "aws_apigatewayv2_api" "apigw_http_endpoint" {
   name          = "veiculovenda-pvt-endpoint"
   description   = "veiculovenda-pvt-endpoint"
   protocol_type = "HTTP"
-}f
+}
 
 # Create the API Gateway HTTP_PROXY integration between the created API and the private load balancer via the VPC Link.
 # Ensure that the 'DependsOn' attribute has the VPC Link dependency.
